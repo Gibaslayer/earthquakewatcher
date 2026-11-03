@@ -181,7 +181,7 @@
                 ]),
                 element('div', { class: 'detail-body' }, [
                     element('h2', { text: quake.lieu }),
-                    element('p', { class: 'muted', text: formatDate(quake.date) + ' - ' + quake.lat.toFixed(2) + ', ' + quake.lon.toFixed(2) }),
+                    element('p', { class: 'muted', text: formatDate(quake.date) + ' | ' + quake.lat.toFixed(2) + ', ' + quake.lon.toFixed(2) }),
                     actions
                 ])
             );
