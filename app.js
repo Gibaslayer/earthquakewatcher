@@ -3,7 +3,7 @@
  *
  * Contents:
  *   - mobile navigation menu
- *   - Leaflet map on the home and archive pages (markers, detail panel, filters)
+ *   - Leaflet map on the home page (markers, detail panel, magnitude filter)
  *   - "add / remove favourite" buttons, sent to api.php with fetch()
  *
  * Data comes from the server through window.EW (set in core.php by pageFooter()).
@@ -80,12 +80,11 @@
     }
 
     /**
-     * Builds the whole map and its panels for the current page (home or archive).
+     * Builds the whole map and its panels (home page).
      *
      * @param {HTMLElement} mapBox The element that will contain the map.
      */
     function setupMap(mapBox) {
-        const page = document.body.dataset.page;
         const quakes = EW.quakes || [];
         let favorites = EW.favorites || [];
         let favIds = EW.favIds || favorites.map(function (f) { return f.id; });
@@ -225,9 +224,6 @@
                 else map.panTo([quake.lat, quake.lon]);
             }
             renderDetail(quake);
-            document.querySelectorAll('tr.seisme-row').forEach(function (row) {
-                row.classList.toggle('selected', row.dataset.id === id);
-            });
         }
 
         /**
@@ -286,12 +282,10 @@
             });
         }
 
-        // Expose select() to the "show on map" buttons of the archive table.
-        mapBox.selectQuake = select;
         refresh();
 
-        // Zoom to the results on the archive page; on the home page only when there are few of them.
-        if (current.length && (page === 'archive' || current.length < 30)) {
+        // Zoom to the earthquakes when there are few of them (offline demo data).
+        if (current.length && current.length < 30) {
             map.fitBounds(L.latLngBounds(current.map(function (q) { return [q.lat, q.lon]; })).pad(0.2), { maxZoom: 5 });
         }
 
@@ -334,7 +328,7 @@
             }
 
             const added = result.status === 'added';
-            // Update every button for this earthquake on the page (table and detail panel).
+            // Update every button for this earthquake on the page.
             document.querySelectorAll('.btn-fav-action').forEach(function (other) {
                 if (other.dataset.id !== data.id) return;
                 other.classList.toggle('active', added);
@@ -397,15 +391,7 @@
             setupMap(mapBox);
         }
 
-        // Archive table: "show on map" buttons.
-        document.addEventListener('click', function (event) {
-            const button = event.target.closest('.btn-show');
-            if (!button || !mapBox || !mapBox.selectQuake) return;
-            mapBox.selectQuake(button.dataset.id, true);
-            mapBox.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        });
-
-        // Favourite buttons (table, detail panel and account page).
+        // Favourite buttons (detail panel and account page).
         document.addEventListener('click', function (event) {
             const button = event.target.closest('.btn-fav-action');
             if (button) handleFavouriteClick(button);

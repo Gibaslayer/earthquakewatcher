@@ -161,7 +161,7 @@ if ($userId && $pdo) {
 }
 
 // Real connection state, shown in the status bar (one lightweight request).
-$status = fetchEarthquakes(['limit' => 1], $pdo)['status'];
+$status = fetchEarthquakes(0.0, 1, $pdo)['status'];
 
 pageHeader('compte', 'nav_account', $status);
 ?>

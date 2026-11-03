@@ -3,7 +3,7 @@
  * core.php - Shared engine of EarthquakeWatcher.
  *
  * Provides: session setup, the SQLite connection (created from database.sql on first use),
- * HTML escaping, the USGS API call with offline fallback, earthquake search,
+ * HTML escaping, the USGS API call with offline fallback,
  * favourite helpers, and the shared page header and footer.
  */
 declare(strict_types=1);
@@ -100,53 +100,26 @@ function httpGet(string $url): ?string {
 }
 
 /**
- * Validates the search parameters coming from the query string.
+ * Loads the earthquakes of the last 7 days from the USGS API, or from the local table seismes_demo
+ * when the API is unreachable. After a failure, the API is not called again for 60 seconds
+ * (remembered in the session), so pages stay fast while offline.
  *
- * @param array $in Raw parameters (usually $_GET).
- * @return array Clean filters: minmag (0-10), start/end (Y-m-d or null), q (max 60 chars), sort ('date' or 'mag'), limit.
- */
-function cleanFilters(array $in): array {
-    // Accepts only real calendar dates in the YYYY-MM-DD format.
-    $validateDate = function ($v): ?string {
-        if (is_string($v) && ($d = DateTime::createFromFormat('Y-m-d', $v)) && $d->format('Y-m-d') === $v) {
-            return $v;
-        }
-        return null;
-    };
-    return [
-        'minmag' => max(0.0, min(10.0, (float)($in['minmag'] ?? 0))),
-        'start'  => $validateDate($in['start'] ?? null),
-        'end'    => $validateDate($in['end'] ?? null),
-        'q'      => mb_substr(trim((string)($in['q'] ?? '')), 0, 60),
-        'sort'   => ($in['sort'] ?? '') === 'mag' ? 'mag' : 'date',
-        'limit'  => 200,
-    ];
-}
-
-/**
- * Loads earthquakes from the USGS API, or from the local table seismes_demo when the API is unreachable.
- * After a failure, the API is not called again for 60 seconds (stored in the session), so pages stay fast offline.
- *
- * @param array    $f   Filters: minmag, start, end, limit (see cleanFilters).
- * @param PDO|null $pdo Database connection used for the offline fallback.
+ * @param float    $minMag Minimum magnitude.
+ * @param int      $limit  Maximum number of earthquakes.
+ * @param PDO|null $pdo    Database connection used for the offline fallback.
  * @return array ['status' => 'online'|'offline', 'data' => list of earthquakes].
  *               Each earthquake has: id, lieu, magnitude, date (UTC, Y-m-d H:i:s), lat, lon.
  */
-function fetchEarthquakes(array $f, ?PDO $pdo): array {
-    $f += ['minmag' => 0.0, 'start' => null, 'end' => null, 'limit' => 200];
-
+function fetchEarthquakes(float $minMag, int $limit, ?PDO $pdo): array {
     // 1. Try the USGS API unless it failed in the last 60 seconds.
     if (($_SESSION['usgs_down_until'] ?? 0) < time()) {
         $query = [
             'format'       => 'geojson',
             'orderby'      => 'time',
-            'limit'        => $f['limit'],
-            'minmagnitude' => $f['minmag'],
-            'starttime'    => $f['start'] ?? gmdate('Y-m-d', time() - 7 * 86400)
+            'limit'        => $limit,
+            'minmagnitude' => $minMag,
+            'starttime'    => gmdate('Y-m-d', time() - 7 * 86400)
         ];
-        if ($f['end']) {
-            $query['endtime'] = $f['end'] . ' 23:59:59';
-        }
 
         $raw  = httpGet(USGS_URL . '?' . http_build_query($query));
         $json = $raw ? json_decode($raw, true) : null;
@@ -176,48 +149,17 @@ function fetchEarthquakes(array $f, ?PDO $pdo): array {
     $data = [];
     if ($pdo) {
         try {
-            $sql = 'SELECT seisme_id_externe AS id, lieu, magnitude, date_seisme AS date, latitude AS lat, longitude AS lon
-                    FROM seismes_demo WHERE magnitude >= :m';
-            $params = [':m' => $f['minmag']];
-            if ($f['start']) {
-                $sql .= ' AND date_seisme >= :s';
-                $params[':s'] = $f['start'] . ' 00:00:00';
-            }
-            if ($f['end']) {
-                $sql .= ' AND date_seisme <= :e';
-                $params[':e'] = $f['end'] . ' 23:59:59';
-            }
-            $st = $pdo->prepare($sql . ' ORDER BY date_seisme DESC');
-            $st->execute($params);
+            $st = $pdo->prepare('SELECT seisme_id_externe AS id, lieu, magnitude, date_seisme AS date, latitude AS lat, longitude AS lon
+                                 FROM seismes_demo WHERE magnitude >= :m ORDER BY date_seisme DESC LIMIT :l');
+            $st->bindValue(':m', $minMag);
+            $st->bindValue(':l', $limit, PDO::PARAM_INT);
+            $st->execute();
             $data = $st->fetchAll();
         } catch (PDOException $e) {
             $data = [];
         }
     }
     return ['status' => 'offline', 'data' => $data];
-}
-
-/**
- * Searches earthquakes with fetchEarthquakes(), then applies the keyword filter and the sort order.
- * The same code runs online and offline.
- *
- * @param array    $f   Clean filters (see cleanFilters).
- * @param PDO|null $pdo Database connection for the offline fallback.
- * @return array ['status' => ..., 'data' => ...] as returned by fetchEarthquakes(), filtered and sorted.
- */
-function searchEarthquakes(array $f, ?PDO $pdo): array {
-    $feed = fetchEarthquakes($f, $pdo);
-    $keyword = (string)($f['q'] ?? '');
-    if ($keyword !== '') {
-        $feed['data'] = array_values(array_filter(
-            $feed['data'],
-            fn($quake) => mb_stripos($quake['lieu'], $keyword) !== false
-        ));
-    }
-    if (($f['sort'] ?? 'date') === 'mag') {
-        usort($feed['data'], fn($a, $b) => $b['magnitude'] <=> $a['magnitude'] ?: strcmp($b['date'], $a['date']));
-    }
-    return $feed;
 }
 
 /**
@@ -243,26 +185,6 @@ function currentUserId(?PDO $pdo): ?int {
     }
     unset($_SESSION['user_id'], $_SESSION['user_name'], $_SESSION['user_email']);
     return null;
-}
-
-/**
- * Returns the external ids of the user's favourites (used to mark rows as favourite).
- *
- * @param PDO|null $pdo    Database connection.
- * @param int|null $userId User id.
- * @return string[] List of external earthquake ids.
- */
-function getUserFavoriteIds(?PDO $pdo, ?int $userId): array {
-    if (!$pdo || !$userId) {
-        return [];
-    }
-    try {
-        $st = $pdo->prepare('SELECT seisme_id_externe FROM favoris WHERE utilisateur_id = :u');
-        $st->execute([':u' => $userId]);
-        return $st->fetchAll(PDO::FETCH_COLUMN) ?: [];
-    } catch (PDOException $e) {
-        return [];
-    }
 }
 
 /**
@@ -307,7 +229,7 @@ function magClass(float $magnitude): string {
 /**
  * Builds the link that switches the language while keeping the current query string (filters).
  *
- * @return string Relative URL such as "archive.php?q=japan&lang=en".
+ * @return string Relative URL such as "index.php?lang=en".
  */
 function langSwitchUrl(): string {
     $query = $_GET;
@@ -319,26 +241,26 @@ function langSwitchUrl(): string {
  * Prints the document start: <head>, header with navigation and language switch,
  * the status bar (online/offline) and a red banner if the database could not be opened.
  *
- * @param string      $page     Current page ('index', 'archive' or 'compte'), used for the active link.
+ * @param string      $page     Current page ('index' or 'compte'), used for the active link.
  * @param string      $titleKey Translation key of the page title.
  * @param string|null $status   'online', 'offline', or null to hide the status bar.
  */
 function pageHeader(string $page, string $titleKey, ?string $status = null): void {
     global $currentLang;
-    $navigation = ['index' => 'nav_live', 'archive' => 'nav_archive', 'compte' => 'nav_account'];
+    $navigation = ['index' => 'nav_live', 'compte' => 'nav_account'];
     $dbError = $GLOBALS['db_error'] ?? null;
     ?>
 <!DOCTYPE html>
-< lang="<?= e($currentLang) ?>">
+<html lang="<?= e($currentLang) ?>">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?= e(t('app_name')) ?> - <?= e(t($titleKey)) ?></title>
-    <?php if ($page === 'index' || $page === 'archive'): ?><link rel="stylesheet" href="leaflet.css"><?php endif; ?>
-    <link rel="icon" href="data:image/svg+xml,%3Csvg xlms='http://www.w3.org/2000/svg' viewBox='0 0 48 24'%3E%3Cpath d='M1 12h10l3-9 5 18 5-14 3 5h20' fill='none' stroke='%23f2994a' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+    <?php if ($page === 'index'): ?><link rel="stylesheet" href="leaflet.css"><?php endif; ?>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 24'%3E%3Cpath d='M1 12h10l3-9 5 18 5-14 3 5h20' fill='none' stroke='%23f2994a' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
     <link rel="stylesheet" href="style.css">
 </head>
-< data-page="<?= e($page) ?>">
+<body data-page="<?= e($page) ?>">
     <header class="station-header">
         <div class="brand-zone">
             <svg class="logo" viewBox="0 0 48 24" aria-hidden="true"><path d="M1 12h10l3-9 5 18 5-14 3 5h20" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -365,6 +287,10 @@ function pageHeader(string $page, string $titleKey, ?string $status = null): voi
     </div>
     <?php endif; ?>
     <?php if ($status !== null): ?>
+    <div class="status-bar <?= $status === 'online' ? 'online' : 'offline' ?>">
+        <span>&#9679; <?= e(t($status === 'online' ? 'status_online' : 'status_offline')) ?></span>
+        <?php if ($status === 'offline'): ?><span><?= e(t('demo_badge')) ?></span><?php endif; ?>
+    </div>
     <?php endif;
 }
 
@@ -396,20 +322,3 @@ function pageFooter(array $jsData = [], bool $withMap = false): void {
 </html>
 <?php
 }
-
-/**
- * Prints the "add to favourites" button used on the home page and in the archive table.
- *
- * @param array $quake Earthquake record (id, lieu, magnitude, date, lat, lon).
- * @param bool  $isFav True if the earthquake is already a favourite (the button is shown active).
- */
-function favButton(array $quake, bool $isFav): void { ?>
-    <button type="button" class="btn-fav btn-fav-action<?= $isFav ? ' active' : '' ?>"
-            data-id="<?= e($quake['id']) ?>"
-            data-lieu="<?= e($quake['lieu']) ?>"
-            data-mag="<?= e((string)$quake['magnitude']) ?>"
-            data-date="<?= e($quake['date']) ?>"
-            data-lat="<?= e((string)$quake['lat']) ?>"
-            data-lon="<?= e((string)$quake['lon']) ?>"
-           ><?= e($isFav ? t('fav_exists') : t('btn_add_fav')) ?></button>
-<?php }

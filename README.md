@@ -64,13 +64,12 @@ Le site utilise **deux** API :
 
 | Fichier | Rôle |
 |---|---|
-| `core.php` | Moteur commun : session, base SQLite, appel à l'API USGS, recherche, en-tête et pied de page |
+| `core.php` | Moteur commun : session, base SQLite, appel à l'API USGS, en-tête et pied de page |
 | `lang.php` | Traductions FR / EN |
-| `index.php` | Surveillance en direct (carte, fiche, plus forts séismes) |
-| `archive.php` | Recherche (dates, magnitude, mot-clé, tri), carte et tableau |
+| `index.php` | Surveillance en direct : carte, fiche du séisme, plus forts séismes, ajout aux favoris |
 | `compte.php` | Connexion, inscription, profil, liste des favoris |
 | `api.php` | API JSON des favoris (ajout / retrait) |
-| `app.js` | Carte Leaflet, fiche, filtres, favoris en AJAX |
+| `app.js` | Carte Leaflet, fiche, filtre de magnitude, favoris en AJAX |
 | `style.css` | Mise en page (thème sombre unique) et version mobile |
 | `leaflet.js`, `leaflet.css` | Bibliothèque de carte Leaflet 1.9.4 (fournie dans le dossier) |
 | `database.sql` | Création des 3 tables, compte démo, 10 séismes de référence |

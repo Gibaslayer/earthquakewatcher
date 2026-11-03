@@ -20,7 +20,7 @@ $favorites = getUserFavorites($pdo, $userId);
 $favIds    = array_column($favorites, 'id');
 
 // One request for the whole week: magnitude 2.5+, up to 1000 events.
-$feed        = fetchEarthquakes(['minmag' => 2.5, 'limit' => 1000], $pdo);
+$feed        = fetchEarthquakes(2.5, 1000, $pdo);
 $status      = $feed['status'];
 $earthquakes = $feed['data'];
 
@@ -55,7 +55,7 @@ pageHeader('index', 'nav_live', $status);
             </ul>
         </div>
 
-        <noscript><p class="alert alert-error"><?= e(t('noscript')) ?> <a href="archive.php"><?= e(t('nav_archive')) ?></a></p></noscript>
+        <noscript><p class="alert alert-error"><?= e(t('noscript')) ?></p></noscript>
 
         <div class="map-wrap">
             <div id="worldMap" class="map-container" role="region" aria-label="<?= e(t('nav_live')) ?>"></div>
