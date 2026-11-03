@@ -1,15 +1,25 @@
 <?php
+/**
+ * index.php - "Live monitoring" page.
+ *
+ * Shows the earthquakes of the last 7 days (magnitude 2.5 and above) on a Leaflet map,
+ * a detail panel for the selected earthquake and the five strongest ones.
+ * The magnitude filter runs in the browser (app.js), so the data is loaded only once here.
+ *
+ * API usage on this page: fetchEarthquakes() in core.php calls the USGS GeoJSON API
+ * (https://earthquake.usgs.gov/fdsnws/event/1/query). When the API is unreachable,
+ * the local table seismes_demo is used instead and the status bar says OFFLINE.
+ */
 declare(strict_types=1);
 require_once __DIR__ . '/core.php';
 require_once __DIR__ . '/lang.php';
 
-$pdo    = getPDO();
-$userId = currentUserId($pdo);
+$pdo       = getPDO();
+$userId    = currentUserId($pdo);
 $favorites = getUserFavorites($pdo, $userId);
 $favIds    = array_column($favorites, 'id');
 
-// Un seul chargement (M 2.5+, 7 jours) ; les filtres de magnitude s'appliquent ensuite
-// côté navigateur, donc un seuil plus haut affiche toujours moins de séismes.
+// One request for the whole week: magnitude 2.5+, up to 1000 events.
 $feed        = fetchEarthquakes(['minmag' => 2.5, 'limit' => 1000], $pdo);
 $status      = $feed['status'];
 $earthquakes = $feed['data'];

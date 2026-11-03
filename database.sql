@@ -1,6 +1,6 @@
 -- ============================================================
--- EarthquakeWatcher - Base de données SQLite (3 tables strictement)
--- Auteur : Gabriel LE GOFF - ENSIIE FISA FC Bases du Web
+-- EarthquakeWatcher - SQLite database (3 tables)
+-- Author: Gabriel LE GOFF - ENSIIE FISA, Web Fundamentals
 -- ============================================================
 
 CREATE TABLE IF NOT EXISTS utilisateurs (
@@ -35,11 +35,11 @@ CREATE TABLE IF NOT EXISTS seismes_demo (
     longitude REAL NOT NULL
 );
 
--- Compte de démonstration : demo@earthquakewatcher.net | mot de passe : Station2026!
+-- Demo account: demo@earthquakewatcher.net / password: Station2026!
 INSERT OR IGNORE INTO utilisateurs (id, nom, email, mot_de_passe)
 VALUES (1, 'Utilisateur Démo', 'demo@earthquakewatcher.net', '$2y$10$Gv/fVfBSKZDm14L7ea0NTeZWCoE2vMhePa0iSXCRbR19nCF3aj5TG');
 
--- 10 séismes réels de référence (noms de lieux en anglais, comme dans l'API USGS)
+-- 10 real reference earthquakes 
 INSERT OR IGNORE INTO seismes_demo (seisme_id_externe, lieu, magnitude, date_seisme, latitude, longitude) VALUES
 ('demo_001', 'Off the east coast of Honshu, Japan (Tohoku)', 9.1, '2011-03-11 05:46:24', 38.2970, 142.3730),
 ('demo_002', 'Banda Aceh, Sumatra, Indonesia', 9.1, '2004-12-26 00:58:53', 3.3160, 95.8540),
@@ -52,6 +52,6 @@ INSERT OR IGNORE INTO seismes_demo (seisme_id_externe, lieu, magnitude, date_sei
 ('demo_009', 'L''Aquila, Abruzzo, Italy', 6.3, '2009-04-06 01:32:39', 42.3340, 13.3340),
 ('demo_010', 'Eastern Crete, Greece', 6.4, '2021-10-12 09:24:03', 35.1900, 25.3200);
 
--- Favori initial pour l'utilisateur de démonstration
+-- Initial favourite of the demo user
 INSERT OR IGNORE INTO favoris (utilisateur_id, seisme_id_externe, lieu, magnitude, date_seisme, latitude, longitude)
 VALUES (1, 'demo_001', 'Off the east coast of Honshu, Japan (Tohoku)', 9.1, '2011-03-11 05:46:24', 38.2970, 142.3730);
