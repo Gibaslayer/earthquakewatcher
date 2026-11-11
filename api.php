@@ -10,7 +10,7 @@
  *   Body (JSON):
  *     {
  *       "action":     "toggle_fav",
- *       "seisme_id":  "us7000abcd",        // USGS event id (max 64 characters)
+ *       "seisme_id":  "us7000abcd",        // USGS event id 
  *       "lieu":       "10 km N of Somewhere",
  *       "magnitude":  6.2,                 // between -2 and 10
  *       "date":       "2026-10-24 02:09:00",// UTC, optional (defaults to now)
@@ -26,9 +26,8 @@
  *   405 {"error":"Method Not Allowed"}                 not a POST request
  *   503 {"error":"..."}                                database unavailable
  *
- * BEHAVIOUR
  * ---------
- * The endpoint toggles: if the earthquake is already a favourite it is removed (DELETE),
+ * If the earthquake is already a favourite it is removed (DELETE),
  * otherwise it is inserted (INSERT). The response tells the caller which one happened.
  */
 declare(strict_types=1);
@@ -82,7 +81,7 @@ if ($quakeId === '' || strlen($quakeId) > 64 || $mag < -2 || $mag > 10 || abs($l
 }
 
 try {
-    // SELECT: is it already a favourite?
+    // SELECT: is it already a favourite ?
     $st = $pdo->prepare('SELECT id FROM favoris WHERE utilisateur_id = :u AND seisme_id_externe = :s');
     $st->execute([':u' => $userId, ':s' => $quakeId]);
     $existing = $st->fetchColumn();

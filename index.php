@@ -3,7 +3,7 @@
  * index.php - "Live monitoring" page.
  *
  * Shows the earthquakes of the last 7 days (magnitude 2.5 and above) on a Leaflet map,
- * a detail panel for the selected earthquake and the five strongest ones.
+ * and a detail panel for the earthquake the user clicked.
  * The magnitude filter runs in the browser (app.js), so the data is loaded only once here.
  *
  * API usage on this page: fetchEarthquakes() in core.php calls the USGS GeoJSON API
@@ -30,7 +30,7 @@ pageHeader('index', 'nav_live', $status);
         <div class="hero-inner">
             <h1><?= e(t('hero_title')) ?></h1>
             <p><?= e(t($status === 'online' ? 'hero_online' : 'hero_offline')) ?></p>
-            <dl class="stats" id="stats" aria-live="polite"></dl>
+            <p class="stats" id="count" aria-live="polite"></p>
         </div>
     </section>
 
@@ -61,13 +61,18 @@ pageHeader('index', 'nav_live', $status);
             <div id="worldMap" class="map-container" role="region" aria-label="<?= e(t('nav_live')) ?>"></div>
         </div>
 
-        <section class="quake-detail" id="quakeDetail" aria-live="polite">
-            <p class="muted"><?= e(t('js_hint')) ?></p>
-        </section>
-
-        <section class="top-quakes">
-            <h2><?= e(t('js_on_map')) ?></h2>
-            <ul id="topList" class="top-list"></ul>
+        <!-- Shown until the user clicks an earthquake; app.js then fills and shows the box below. -->
+        <p class="muted" id="detailHint"><?= e(t('js_hint')) ?></p>
+        <section class="quake-detail" id="quakeDetail" aria-live="polite" hidden>
+            <div class="detail-mag" id="dMagBox"><span>M</span><strong id="dMag"></strong></div>
+            <div class="detail-body">
+                <h2 id="dPlace"></h2>
+                <p class="muted" id="dInfo"></p>
+                <div class="detail-actions">
+                    <button type="button" class="btn-fav" id="favBtn" hidden></button>
+                    <a href="compte.php" id="loginLink" hidden><?= e(t('js_login_to_fav')) ?></a>
+                </div>
+            </div>
         </section>
     </main>
 <?php pageFooter(['quakes' => $earthquakes, 'favorites' => $favorites, 'favIds' => $favIds], true); ?>

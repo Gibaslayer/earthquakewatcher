@@ -25,17 +25,6 @@ if (!$pdo) {
 currentUserId($pdo);   // clears the session if the account no longer exists
 
 /**
- * Returns the path of the failed-login counter file for an e-mail address.
- * The file name is a SHA-1 hash, so no personal data is written to disk.
- *
- * @param string $email E-mail address typed in the sign-in form.
- * @return string Full path of the counter file in the system temporary folder.
- */
-function loginThrottleFile(string $email): string {
-    return sys_get_temp_dir() . '/ew_login_' . sha1(mb_strtolower(trim($email))) . '.json';
-}
-
-/**
  * Stores the user in the session after a successful sign-in or sign-up.
  * The session id is regenerated to prevent session fixation.
  *
@@ -95,27 +84,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $pdo) {
         // SELECT: sign-in
         if ($action === 'login') {
             $old['email'] = (string)($_POST['email'] ?? '');
-            // Brute-force protection: 5 failures for the same e-mail = 60 s pause.
-            // The counter is stored on the server, so clearing cookies does not bypass it.
-            $throttle = loginThrottleFile($old['email']);
-            $state    = is_file($throttle) ? (json_decode((string)file_get_contents($throttle), true) ?: []) : [];
-            if (($state['until'] ?? 0) > time()) {
-                $error = t('login_throttle');
-            } else {
-                $st = $pdo->prepare('SELECT id, nom, email, mot_de_passe FROM utilisateurs WHERE email = :e LIMIT 1');
-                $st->execute([':e' => mb_strtolower(trim($old['email']))]);
-                $user = $st->fetch();
-                if ($user && password_verify((string)($_POST['pwd'] ?? ''), $user['mot_de_passe'])) {
-                    @unlink($throttle);
-                    loginSession((int)$user['id'], $user['nom'], $user['email']);
-                    header('Location: compte.php');
-                    exit;
-                }
-                $fails = ($state['fails'] ?? 0) + 1;
-                $state = ['fails' => $fails >= 5 ? 0 : $fails, 'until' => $fails >= 5 ? time() + 60 : 0];
-                file_put_contents($throttle, json_encode($state));
-                $error = t('login_err');
+            $st = $pdo->prepare('SELECT id, nom, email, mot_de_passe FROM utilisateurs WHERE email = :e LIMIT 1');
+            $st->execute([':e' => mb_strtolower(trim($old['email']))]);
+            $user = $st->fetch();
+            if ($user && password_verify((string)($_POST['pwd'] ?? ''), $user['mot_de_passe'])) {
+                loginSession((int)$user['id'], $user['nom'], $user['email']);
+                header('Location: compte.php');
+                exit;
             }
+            $error = t('login_err');
         }
 
         // UPDATE: name and/or password

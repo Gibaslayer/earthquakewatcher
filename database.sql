@@ -1,8 +1,3 @@
--- ============================================================
--- EarthquakeWatcher - SQLite database (3 tables)
--- Author: Gabriel LE GOFF - ENSIIE FISA, Web Fundamentals
--- ============================================================
-
 CREATE TABLE IF NOT EXISTS utilisateurs (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     nom TEXT NOT NULL,

@@ -1,34 +1,31 @@
-# EarthquakeWatcher — Station de surveillance sismique
+# EarthquakeWatcher - Station de surveillance sismique
 
-Projet de **Gabriel LE GOFF** — ENSIIE FISA FC, Bases du Web 2026-2027.
-Technologies : HTML / CSS / PHP 8 / SQL (SQLite via PDO) / JavaScript, carte Leaflet 1.9.4.
+Projet de **Gabriel LE GOFF** - ENSIIE FISA, Bases du Web 2026-2027.
+Technologies : HTML / CSS / PHP 8 / SQL (SQLite) / JavaScript, carte Leaflet 1.9.4.
 
 ## Lancer le site
 
-### Option A — PHP en ligne de commande (le plus simple)
+### PHP en ligne de commande 
 
 PHP 8 avec les extensions `pdo_sqlite` et `curl` :
 
 ```bash
 php -S localhost:8000
 ```
+### Uniform Server
 
-Puis ouvrir http://localhost:8000/
+Dans `php_development.ini` (dossier `core/php83`), les extensions `curl`, `openssl`, `pdo_sqlite` et `sqlite3` doivent être activées. Pour que PHP puisse joindre l'API USGS en HTTPS, indiquer aussi un fichier de certificats, puis redémarrer Apache :
 
-### Option B - Uniform Server (Windows)
+```ini
+curl.cainfo = "C:/Uniform_2025_2026/home/us_opt1/vendor/composer/ca-bundle/res/cacert.pem"
+openssl.cafile = "C:/Uniform_2025_2026/home/us_opt1/vendor/composer/ca-bundle/res/cacert.pem"
+```
 
-1. Copier le dossier `legoffgabrielstandard` dans le dossier `www` d'Uniform Server.
-2. Ouvrir le `php.ini` utilisé par Uniform Server (depuis son panneau de contrôle) et vérifier que ces lignes ne sont **pas** précédées de `;` :
+Sans cela, le bandeau affiche « MODE HORS LIGNE » et le site utilise la table locale de secours.
 
-   ```ini
-   extension=pdo_sqlite
-   extension=sqlite3
-   extension=curl
-   extension=openssl
-   ```
+## Utilisation d'un LLM
 
-3. Pour voir les erreurs au lieu d'une page blanche, mettre `display_errors = On` (à remettre à `Off` pour une mise en production).
-4. Redémarrer Apache (ou Uniform Server), puis ouvrir `http://localhost/legoffgabrielstandard/`.
+Le sujet autorise l'usage de LLM. Conformément à cette consigne, je précise que j'ai été assisté par un LLM pour ce projet.
 
 ## Base de données
 
@@ -50,23 +47,13 @@ Le site utilise **deux** API :
 
 2. **API interne `api.php`** (appelée par le JavaScript de la page, dans `app.js`) : elle ajoute ou retire un favori. Elle reçoit une requête **POST** en JSON et répond en JSON. Le format complet (champs, codes de réponse) est décrit en tête du fichier `api.php`.
 
-   Exemple d'appel depuis le navigateur :
-
-   ```js
-   fetch('api.php', {
-       method: 'POST',
-       headers: { 'Content-Type': 'application/json' },
-       body: JSON.stringify({ action: 'toggle_fav', seisme_id, lieu, magnitude, date, lat, lon })
-   });
-   ```
-
 ## Fichiers
 
 | Fichier | Rôle |
 |---|---|
 | `core.php` | Moteur commun : session, base SQLite, appel à l'API USGS, en-tête et pied de page |
 | `lang.php` | Traductions FR / EN |
-| `index.php` | Surveillance en direct : carte, fiche du séisme, plus forts séismes, ajout aux favoris |
+| `index.php` | Surveillance en direct : carte, fiche du séisme, ajout aux favoris |
 | `compte.php` | Connexion, inscription, profil, liste des favoris |
 | `api.php` | API JSON des favoris (ajout / retrait) |
 | `app.js` | Carte Leaflet, fiche, filtre de magnitude, favoris en AJAX |
